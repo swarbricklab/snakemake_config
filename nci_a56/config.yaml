@@ -4,6 +4,9 @@
 # File specifying PBS settings for Project a56
 jobname: "{name}.{jobid}"
 cluster-config: cluster.yaml
+cluster: "pbs_submit.py"
+cluster-status: "pbs_status.sh"
+cluster-cancel: "qdel"
 
 # Conda settings
 conda-prefix: /g/data/a56/conda/snakecache/
