@@ -1,0 +1,5 @@
+# Settings relating to submitting jobs to PBS under Project a56
+  project: a56
+  storage: gdata/a56
+  queue: normal
+  operand: --

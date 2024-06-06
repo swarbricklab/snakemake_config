@@ -1,0 +1,18 @@
+# Map betwen PBS Pro resource specifications and human-readable keys
+# Note: Snakemake automatically converts mem and disk to mem_mb and disk_mb
+system: "pbspro"
+
+pbspro:
+  command: "qsub -V -l wd -j oe "
+  key_mapping:
+    project: "-P {}"
+    name: "-N {}"
+    account: "-A {}"
+    storage: "-l storage={}"
+    queue: "-q {}"
+    threads: "-l ncpus={}"
+    mem_mb: "-l mem={}mb"
+    disk_mb: "-l jobfs={}mb"
+    runtime: "-l walltime={}"
+    log: "-o {}"
+    operand: "{}"

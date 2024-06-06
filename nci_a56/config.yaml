@@ -1,0 +1,22 @@
+# Global Snakemake config for snakemake workflows run under Project a56
+# Config specified here is merged with workflow-specific config
+
+# File specifying PBS settings for Project a56
+jobname: "{name}.{jobid}"
+cluster-config: cluster.yaml
+
+# Conda settings
+conda-prefix: /g/data/a56/conda/snakecache/
+
+# Singularity settings
+use-singularity: true
+singularity-prefix: "/g/data/a56/software/singularity/images"
+singularity-args:   "--bind /g/data/a56"
+
+# Snakemake settings
+jobs: 1000
+max-jobs-per-second: 10
+max-status-checks-per-second: 10
+latency-wait: 60
+cores: 99
+local-cores: 1 
