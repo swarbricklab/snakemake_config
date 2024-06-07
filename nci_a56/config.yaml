@@ -3,7 +3,6 @@
 
 # File specifying PBS settings for Project a56
 jobname: "{name}.{jobid}"
-cluster-config: cluster.yaml
 cluster: "pbs_submit.py"
 cluster-status: "pbs_status.sh"
 cluster-cancel: "qdel"
@@ -23,3 +22,9 @@ max-status-checks-per-second: 10
 latency-wait: 60
 cores: 99
 local-cores: 1 
+
+# Default resources
+default-resources:
+  project: "a56"
+  storage: "gdata/a56"
+  queue: "normal"

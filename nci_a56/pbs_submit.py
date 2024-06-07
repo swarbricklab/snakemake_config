@@ -50,24 +50,22 @@ wrapper_directory = os.path.dirname(__file__)
 
 jobscript = sys.argv[1]
 job_properties = read_job_properties(jobscript)
-
-# default paramters defined in cluster_spec (accessed via snakemake read_job_properties)
-cluster_param = job_properties["cluster"]
+logging.debug("Job properties: " + json.dumps(job_properties))
 
 # resources defined in rules, profile or from command line
-resources = job_properties["resources"]
-logging.info("Resources: " + json.dumps(cluster_param))
+params = job_properties["resources"]
 
-cluster_param["name"] = get_job_name(job_properties)
+params["name"]  = get_job_name(job_properties)
+params["jobid"] = job_properties["jobid"]
 
-for res in resources:
-    # Only include resource specifications that have not been overwritten by cluster specifications
-    if res not in cluster_param:
-        # Only include mem_mb and disk_mb -- ignore other (equivalent) mem/disk specifications
-        if res not in [ 'mem', 'mem_mib', 'mem_gb', 'disk', 'disk_mib', 'disk_gb']:
-            cluster_param[res] = resources[res]
+# Only include mem_mb and disk_mb -- ignore other (equivalent) mem/disk specifications
+for res in ['mem', 'mem_mib', 'mem_gb', 'disk', 'disk_mib', 'disk_gb']:
+    try:
+        del params[res]
+    except KeyError:
+        pass
 
-logging.info("Cluster params: " + json.dumps(cluster_param))
+logging.debug("Final params: " + json.dumps(params))
 
 # check which system you are on and load command command_options
 key_mapping_file = os.path.join(wrapper_directory, "key_mapping.yaml")
@@ -77,21 +75,19 @@ command = command_options[system]["command"]
 key_mapping = command_options[system]["key_mapping"]
 
 # construct command:
-for key in cluster_param:
+for key in params:
     if (key not in key_mapping) and (key != 'tmpdir'):
         logging.warning(
             f"parameter '{key}' not in keymapping! It would be better if you add the key to the file: {key_mapping_file} \n I try without the key!"
         )
-    elif (key == "operand") or (key == 'tmpdir'):
+    elif (key == "operand") or (key == 'tmpdir') or (key == "jobid"):
         pass
     else:
         command += " "
-        command += key_mapping[key].format(cluster_param[key])
+        command += key_mapping[key].format(params[key])
 
-if "operand" in cluster_param:
-    command += " {}".format(cluster_param["operand"])
+command += " -o logs/joblogs/{}.{}.log -- ".format(params["name"], params["jobid"])
 command += " {}".format(jobscript)
-
 logging.info("submit command: " + command)
 
 p = Popen(command.split(), stdout=PIPE, stderr=PIPE)

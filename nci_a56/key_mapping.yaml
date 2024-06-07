@@ -3,7 +3,7 @@
 system: "pbspro"
 
 pbspro:
-  command: "qsub -V -l wd -j oe "
+  command: "qsub -S /bin/bash -V -l wd -j oe "
   key_mapping:
     project: "-P {}"
     name: "-N {}"
@@ -14,5 +14,4 @@ pbspro:
     mem_mb: "-l mem={}mb"
     disk_mb: "-l jobfs={}mb"
     runtime: "-l walltime={}"
-    log: "-o {}"
-    operand: "{}"
+    jobid: "{}"
