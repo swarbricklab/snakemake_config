@@ -17,9 +17,12 @@ From v7.29.0, Snakemake supports kinds of profiles:
 2. workflow-specific profiles (specifed via `--workflow-profile`)
 
 Value options from all sourced are merged, with the following priority:
-```
-command line > workflow profile > global profile > rule specifications > default value
-```
+1. command line
+2. workflow profile
+3. global profile
+4. rule specifications
+5. default value
+
 That is, values specified from the command line override specifications in the workflow profile, and so on.
 
 ## Global versus workflow profiles
@@ -95,8 +98,8 @@ The submodule can then be checked out to the specific revision (version/branch) 
 
 ## Resources
 
-As well as command line options, profiles can also include resource specifications.
-Any default resources specified in the global profile will provide default values for rules that do not specify resource requirements.
+As well as command line options, profiles can also include [resource](https://snakemake.readthedocs.io/en/v7.32.3/snakefiles/rules.html#resources) specifications.
+Any [default resources](https://snakemake.readthedocs.io/en/v7.32.3/snakefiles/rules.html#default-resources) specified in the global profile will provide default values for rules that do not specify resource requirements.
 These default resources include account credentials, such as `project: a56`, which can be inherited by every workflow using the global profile.
 
 > Important note: default resources specified in workflow profiles completely mask those specified in global profiles.
@@ -107,7 +110,7 @@ These default resources include account credentials, such as `project: a56`, whi
 
 ### Standard resources
 
-Both global and workflow profiles should, where possible, use the "standard resources" recognized by Snakemake, including:
+Both global and workflow profiles should, where possible, use the [standard resources](https://snakemake.readthedocs.io/en/v7.32.3/snakefiles/rules.html#standard-resources) recognized by Snakemake, including:
 - `mem`     = total memory (not memory per CPU). Requires suffix such as "MB" or "GB"
 - `disk`    = total local disk space (not per CPU). Requires suffix
 - `threads` = equivalent to "cores" as not all CPU cores are multi-threaded
