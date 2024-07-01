@@ -86,6 +86,13 @@ for key in params:
         command += " "
         command += key_mapping[key].format(params[key])
 
+if params["mem_mb"] < 190000:
+    command += " -q normal "
+elif params["mem_mb"] < 1470000:
+    command += " -q hugemem "
+else:
+    command += " -q megamem "
+
 command += " -o logs/joblogs/{}.{}.log -- ".format(params["name"], params["jobid"])
 command += " {}".format(jobscript)
 logging.info("submit command: " + command)

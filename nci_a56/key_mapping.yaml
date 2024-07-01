@@ -9,7 +9,6 @@ pbspro:
     name: "-N {}"
     account: "-A {}"
     storage: "-l storage={}"
-    queue: "-q {}"
     threads: "-l ncpus={}"
     mem_mb: "-l mem={}mb"
     disk_mb: "-l jobfs={}mb"
