@@ -30,7 +30,7 @@ That is, values specified from the command line override specifications in the w
 Submitting a job to a job scheduler such as PBS or SGE typically involves specifying account-specific or platform-specific information, such as account (project), queues or partitions (storage volumes).
 Such values are not intrinsic to the workflow.
 That is, the workflow could be run on single server (assuming sufficient compute resources) without submitting any jobs at all, or the same workflow could be run by a different team using different account (project) credentials and a different storage volume.
-Moreover, the same project, queue and storage values can be used across multiple workflows.
+Moreover, the same project and storage values can be used across multiple workflows.
 
 Options such as the above are good candidates for **global profiles**. 
 The values in these global profiles can be loaded by multiple workflows.
@@ -128,7 +128,10 @@ Other than the recommended standard resources above, resource keys are free form
 However, we have defined the following additional resources to support execution in a cluster environment:
 - `project` : Used for HPC acount purposes, eg "a56" or "TumourProgression"
 - `storage` : which storage volume to mount, eg "gdata/a56" or "/directflow"
-- `queue`   : which queue to submit jobs to, eg "normal", "copyq"
+
+At the moment, the profile dynamically determines which queue to use for submission ("normal", "hugemem" or "megamem") based on the amount of memory requested.
+
+TODO: Figure out how to handle special queues such as "copyq" and "gpuvolta"
 
 Use these resources in additional to standard resources when appropriate.
 The values specified via these resources can be translated into platform-specific job submission options via key mappings.
