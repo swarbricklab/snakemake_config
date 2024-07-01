@@ -13,7 +13,7 @@ conda-prefix: /g/data/a56/conda/snakecache/
 # Singularity settings
 use-singularity: true
 singularity-prefix: "/g/data/a56/software/singularity/images"
-singularity-args:   "--bind /g/data/a56"
+singularity-args:   "--bind /g/data/a56,/scratch/a56"
 
 # Snakemake settings
 jobs: 1000
@@ -27,4 +27,3 @@ local-cores: 1
 default-resources:
   project: "a56"
   storage: "gdata/a56"
-  queue: "normal"
