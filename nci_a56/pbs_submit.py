@@ -40,6 +40,37 @@ def get_job_name(job_properties):
             f"Don't know what to do with job_properties['type']=={job_properties['type']}"
         )
 
+# This function selects an appropriate queue depending on the mem and jobfs requirements
+# The selection is based on the NCI queue limits: https://opus.nci.org.au/display/Help/Queue+Limits
+# Note that queues have minimum (as as well as maximum) mem requirements, but not jobfs
+# TODO: consider network and GPU usage
+def select_queue(mem,jobfs):
+    # Constants (in MB)
+    NORMAL_MAX_MEM=196608
+    HUGEMEM_MAX_MEM=1402901780
+    NORMAL_MAX_JOBFS=409600
+    HUGEMEM_MAX_JOBFS=1433600
+    # First look at jobfs
+    # Increase mem if necessary
+    if jobfs < NORMAL_MAX_JOBFS:
+        queue = 'normal'
+    elif jobfs < HUGEMEM_MAX_JOBFS:
+        queue = 'hugemem'
+        mem = max(mem,NORMAL_MAX_MEM+1024)
+    else:
+        queue = 'memgamem'
+        mem = max(mem,HUGEMEM_MAX_MEM+1024)
+    # Now look at mem
+    if mem < NORMAL_MAX_MEM:
+        queue = 'normal'
+    elif mem < HUGEMEM_MAX_MEM:
+        queue = 'hugemem'
+    else:
+        queue = 'memgamem'
+    # Return queue string, plus updated mem string
+    # Note that if '-l mem={mem}' is specified twice with qsub
+    # then only the second value is used
+    return f" -l mem={mem}mb -q {queue}"
 
 ## Beginning of the script
     
@@ -86,13 +117,8 @@ for key in params:
         command += " "
         command += key_mapping[key].format(params[key])
 
-if params["mem_mb"] < 190000:
-    command += " -q normal "
-elif params["mem_mb"] < 1470000:
-    command += " -q hugemem "
-else:
-    command += " -q megamem "
 
+command += select_queue(params["mem_mb"], params["disk_mb"])
 command += " -o logs/joblogs/{}.{}.log -- ".format(params["name"], params["jobid"])
 command += " {}".format(jobscript)
 logging.info("submit command: " + command)
