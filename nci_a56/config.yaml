@@ -27,3 +27,4 @@ local-cores: 1
 default-resources:
   project: "a56"
   storage: "gdata/a56"
+  runtime: "600"

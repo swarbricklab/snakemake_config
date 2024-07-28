@@ -72,6 +72,13 @@ def select_queue(mem,jobfs):
     # then only the second value is used
     return f" -l mem={mem}mb -q {queue}"
 
+def calculate_walltime(runtime):
+    # "runtime" is a standard Snakemake resource, measured in minutes: 
+    # https://snakemake.readthedocs.io/en/v7.32.3/snakefiles/rules.html#standard-resources
+    # "walltime" is a qsub option for PBS Pro, measured in seconds
+    walltime=runtime*60
+    return f" -l walltime={walltime} "
+
 ## Beginning of the script
     
 # Install exception handler
@@ -111,7 +118,7 @@ for key in params:
         logging.warning(
             f"parameter '{key}' not in keymapping! It would be better if you add the key to the file: {key_mapping_file} \n I try without the key!"
         )
-    elif (key == "operand") or (key == 'tmpdir') or (key == "jobid"):
+    elif (key == "operand") or (key == 'tmpdir') or (key == "jobid") or (key == "runtime"):
         pass
     else:
         command += " "
@@ -119,6 +126,7 @@ for key in params:
 
 
 command += select_queue(params["mem_mb"], params["disk_mb"])
+command += calculate_walltime(params["runtime"])
 command += " -o logs/joblogs/{}.{}.log -- ".format(params["name"], params["jobid"])
 command += " {}".format(jobscript)
 logging.info("submit command: " + command)
