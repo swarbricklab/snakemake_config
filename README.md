@@ -116,7 +116,10 @@ Both global and workflow profiles should, where possible, use the [standard reso
 - `threads` = equivalent to "cores" as not all CPU cores are multi-threaded
 - `runtime` = translates to "walltime" on HPC systems
 
-TODO: Add notes on runtime
+> Note: As a standard resource, `runtime` can be specified either as an integer (minutes) or as a string (eg, "4h30m" for "four hours and 30 minutes"), but internally Snakemake translates the latter into the former.
+> Similarly, on NCI `walltime` values can be specified either as an integer (seconds) or as a string (eg "4:30:00").
+> This profile translates the `runtime` integer (minutes) into a `walltime` integer (seconds).
+> You can specifiy `runtime` strings but the walltime string format will not be recognized. 
 
 Internally, Snakemake translates `mem` and `disk` into `mem_mb`, `mem_gb`, `disk_mb`, `disk_gb`, etc.
 These resource items are equivalent to `mem` and `disk` except that they are integars, with the units implied by the resource name.
