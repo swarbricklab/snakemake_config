@@ -12,6 +12,7 @@ log=logs/joblogs/job_status.log
 
 # Make sure error log exists
 if [ ! -f $log ]; then
+    mkdir -p logs/joblogs
     echo -e "time\t\tjobid\t\tstatus" > $log
 fi
 
