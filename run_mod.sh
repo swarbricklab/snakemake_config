@@ -1,13 +1,14 @@
 #! /bin/bash
 
 set -e
+workflow="demuxafy"
 eval  "$(conda shell.bash hook)"
 conda activate snakemake_7.32.4
 
 if [[ "$(hostname)" == *"nci"* ]]; then
     echo "Running on NCI"
-    global_profile="--profile modules/chromium-preprocessing/profiles/global/nci_a56"
-    workflow_profile="--workflow-profile modules/chromium-preprocessing/profiles/workflow "
+    global_profile="--profile modules/$workflow/profiles/global/nci_a56"
+    workflow_profile="--workflow-profile modules/$workflow/profiles/workflow "
     module load singularity
     mkdir -p logs/joblogs
 else
@@ -19,6 +20,6 @@ else
 fi
 
 snakemake $global_profile $workflow_profile \
-    --snakefile modules/chromium-preprocessing/workflow/Snakefile \
-    --configfile config/chromium-preprocessing/config.yaml \
+    --snakefile modules/$workflow/workflow/Snakefile \
+    --configfile config/$workflow/soup-or-cell/config.yaml \
     $@
