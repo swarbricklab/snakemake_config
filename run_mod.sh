@@ -1,7 +1,7 @@
 #! /bin/bash
 
 set -e
-workflow="demuxafy"
+workflow=$1; shift
 eval  "$(conda shell.bash hook)"
 conda activate snakemake_7.32.4
 
