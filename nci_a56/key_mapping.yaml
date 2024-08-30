@@ -13,3 +13,4 @@ pbspro:
     mem_mb: "-l mem={}mb"
     disk_mb: "-l jobfs={}mb"
     jobid: "{}"
+    runtime: null
