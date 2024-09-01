@@ -28,6 +28,6 @@ default-resources:
   project: "a56"
   storage: "gdata/a56"
   runtime: "600" # minutes
-  mem_gb: "4"
+  mem_mb: "4000"
   threads: "1"
   disk_mb: "100"
