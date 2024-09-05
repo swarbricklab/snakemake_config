@@ -3,7 +3,7 @@
 system: "pbspro"
 
 pbspro:
-  command: "qsub -S /bin/bash -V -l wd -j oe "
+  command: "qsub -S /bin/bash -V -l wd -j oe -W umask=0007 "
   key_mapping:
     project: "-P {}"
     name: "-N {}"
