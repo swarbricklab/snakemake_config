@@ -44,33 +44,42 @@ def get_job_name(job_properties):
 # The selection is based on the NCI queue limits: https://opus.nci.org.au/display/Help/Queue+Limits
 # Note that queues have minimum (as as well as maximum) mem requirements, but not jobfs
 # TODO: consider network and GPU usage
-def select_queue(mem,jobfs):
+def select_queue(mem,jobfs, provided_queue=None):
     # Constants (in MB)
     NORMAL_MAX_MEM=196608
     HUGEMEM_MAX_MEM=1402901780
     NORMAL_MAX_JOBFS=409600
     HUGEMEM_MAX_JOBFS=1433600
-    # First look at jobfs
-    # Increase mem if necessary
-    if jobfs < NORMAL_MAX_JOBFS:
-        queue = 'normal'
-    elif jobfs < HUGEMEM_MAX_JOBFS:
-        queue = 'hugemem'
-        mem = max(mem,NORMAL_MAX_MEM+1024)
+    # If a queue is already provided, use it directly
+    if provided_queue is not None: 
+        # Add GPU resource if the queue is gpuvolta
+        # And need to request 12 cpus per gpu
+        if provided_queue == 'gpuvolta':
+            return f" -l mem={mem}mb -l ngpus=1 -l ncpus=12 -q {provided_queue}"
+        else:
+            return f" -l mem={mem}mb -q {provided_queue}"
     else:
-        queue = 'memgamem'
-        mem = max(mem,HUGEMEM_MAX_MEM+1024)
-    # Now look at mem
-    if mem < NORMAL_MAX_MEM:
-        queue = 'normal'
-    elif mem < HUGEMEM_MAX_MEM:
-        queue = 'hugemem'
-    else:
-        queue = 'memgamem'
-    # Return queue string, plus updated mem string
-    # Note that if '-l mem={mem}' is specified twice with qsub
-    # then only the second value is used
-    return f" -l mem={mem}mb -q {queue}"
+        # First look at jobfs
+        # Increase mem if necessary
+        if jobfs < NORMAL_MAX_JOBFS:
+            queue = 'normal'
+        elif jobfs < HUGEMEM_MAX_JOBFS:
+            queue = 'hugemem'
+            mem = max(mem,NORMAL_MAX_MEM+1024)
+        else:
+            queue = 'memgamem'
+            mem = max(mem,HUGEMEM_MAX_MEM+1024)
+        # Now look at mem
+        if mem < NORMAL_MAX_MEM:
+            queue = 'normal'
+        elif mem < HUGEMEM_MAX_MEM:
+            queue = 'hugemem'
+        else:
+            queue = 'memgamem'
+        # Return queue string, plus updated mem string
+        # Note that if '-l mem={mem}' is specified twice with qsub
+        # then only the second value is used
+        return f" -l mem={mem}mb -q {queue}"
 
 def calculate_walltime(runtime):
     # "runtime" is a standard Snakemake resource, measured in minutes: 
@@ -124,8 +133,10 @@ for key in params:
         command += " "
         command += key_mapping[key].format(params[key])
 
+# Fetch provided queue if specified in the job properties
+provided_queue = params.get("queue", None)
 
-command += select_queue(params["mem_mb"], params["disk_mb"])
+command += select_queue(params["mem_mb"], params["disk_mb"], provided_queue)
 command += calculate_walltime(params["runtime"])
 command += " -o logs/joblogs/{}.{}.log -- ".format(params["name"], params["jobid"])
 command += " {}".format(jobscript)
