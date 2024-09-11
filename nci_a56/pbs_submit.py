@@ -47,9 +47,9 @@ def get_job_name(job_properties):
 def select_queue(mem,jobfs, provided_queue=None):
     # Constants (in MB)
     NORMAL_MAX_MEM=196608
-    HUGEMEM_MAX_MEM=1402901780
+    HUGEMEM_MAX_MEM=1401901
     NORMAL_MAX_JOBFS=409600
-    HUGEMEM_MAX_JOBFS=1433600
+    HUGEMEM_MAX_JOBFS=1335144
     # If a queue is already provided, use it directly
     if provided_queue is not None: 
         # Add GPU resource if the queue is gpuvolta
