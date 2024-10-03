@@ -25,10 +25,13 @@ local-cores: 1
 
 # Default resources
 default-resources:
+  # Team settings
   project: "a56"
   storage: "gdata/a56"
+  # NCI defaults
   runtime: "600" # minutes
   mem_mb: "4000"
   threads: "1"
   disk_mb: "100"
-  jobmode: "profiles/global/resources/pbspro.template"
+  # Jobscript template used by cellranger, spaceranger etc in cluster mode
+  jobmode: "profiles/global/resources/nci_a56/pbspro.template"
