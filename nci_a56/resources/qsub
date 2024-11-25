@@ -1,0 +1,36 @@
+#!/bin/bash
+
+set -e
+
+# Check if we have received a job script as an argument or via stdin
+if [ "$#" -eq 1 ]; then
+  # Received the job script as an argument
+  jobscript="$1"
+elif [ "$#" -eq 0 ]; then
+  # Read from stdin if no argument was provided
+  jobscript=$(mktemp $TMPDIR/_jobscript.XXXXXX)
+  cat > "$jobscript"
+else
+  echo "Usage: $0 _jobscript"
+  echo "Params: $@"
+  exit 1
+fi
+
+# Extract the memory requirement from the job script
+MEMORY=$(grep -oP '#PBS -l mem=\K\d+' "$jobscript")
+QUEUE=$(grep -oP '#PBS -q \K\w+' "$jobscript")
+
+# Define a memory threshold (e.g., 192GB) and decide the queue
+MEMORY_THRESHOLD=192
+if [ "$MEMORY" -gt "$MEMORY_THRESHOLD" ]; then
+  # Update the queue if memory requirement exceeds the threshold
+  sed -i 's/^#PBS -q .*/#PBS -q hugemem\n#PBS -l jobfs=400GB/' "$jobscript"
+else
+  # Mark jobscript as having been checked
+  sed -i '2i # Checked resources against queue' "$jobscript"
+fi
+
+# Submit the modified job script
+/opt/pbs/default/bin/qsub $jobscript
+
+

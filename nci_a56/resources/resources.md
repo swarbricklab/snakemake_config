@@ -7,6 +7,7 @@ Placing these resources here avoids duplication and allows all workflows that ut
 
 This directory contains the following resources:
 - `pbspro.template`
+- `qsub`
 
 ### `pbspro.tempate`
 
@@ -21,3 +22,8 @@ In particular, `cellranger` etc will determine how many resources to request (me
 Generally, these resource estimates are quite accurate, resulting in very efficient resource allocation.
 Occassionally, however, `cellranger` etc will underestimate the amount of memory required, for example.
 In such cases, it is possible to override the default resource allocations.
+
+### `qsub`
+
+This wrapper script intercepts `qsub` calls and rewrites the jobscript to ensure that the queue requested can cater for the resources requested.
+The wrapper then passes the edited jobscript on to the system `qsub`.

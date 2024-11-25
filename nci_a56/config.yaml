@@ -17,7 +17,7 @@ singularity-args:   "--bind /g/data/a56,/scratch/a56"
 
 # Snakemake settings
 jobs: 1000
-max-jobs-per-second: 10
+max-jobs-per-second: 1
 max-status-checks-per-second: 10
 latency-wait: 60
 cores: 99
@@ -25,9 +25,13 @@ local-cores: 1
 
 # Default resources
 default-resources:
+  # Team settings
   project: "a56"
   storage: "gdata/a56"
+  # NCI defaults
   runtime: "600" # minutes
   mem_mb: "4000"
   threads: "1"
   disk_mb: "100"
+  # Jobscript template used by cellranger, spaceranger etc in cluster mode
+  jobmode: "'profiles/global/nci_a56/resources/pbspro.template'"
