@@ -135,10 +135,11 @@ for key in params:
 
 # Fetch provided queue if specified in the job properties
 provided_queue = params.get("queue", None)
-
+log_dir="logs/joblogs/{}".format(params["name"])
+os.makedirs(log_dir, exist_ok=True)
 command += select_queue(params["mem_mb"], params["disk_mb"], provided_queue)
 command += calculate_walltime(params["runtime"])
-command += " -o logs/joblogs/{}.{}.log -- ".format(params["name"], params["jobid"])
+command += " -o " + log_dir + "/{}.{}.log -- ".format(params["name"], params["jobid"])
 command += " {}".format(jobscript)
 logging.info("submit command: " + command)
 
