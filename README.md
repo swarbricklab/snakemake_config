@@ -1,7 +1,7 @@
 # Global Snakemake Profiles
 
 This repo tracks global Snakemake profiles used by the Swarbrick Lab on the following platforms:
-- The Australian National Compute Infrastructure (NCI)
+- [The Australian National Compute Infrastructure (NCI)](nci_a56)
 - The Garvan HPC
 
 Profiles for additional platforms will be added as the need arises.
@@ -79,7 +79,28 @@ However, the preferred solution is to embed global profiles into workflow repos 
 This allows _a particular version_ of the global profile to be specified via a relative path from the top level of the workflow or dataset repo.
 A side benefit of this approach is the inclusion of this documentation in the workflows and datasets that use these profiles.
 
-TODO: Add example
+## Installation
+
+The global profiles defined in this module can be installed into a workflow repo as follows:
+```
+cd {top of workflow repo}
+mkdir profiles
+git submodule add git@github.com:swarbricklab/snakemake_config.git profiles/global
+```
+When cloning a repo containing one or more submodules it is convenient to add the `--recurse-submodules` option.
+Otherwise the files and directories defined by the submodule will not be cloned.
+(This is done automatically by the `dt_clone` utility.)
+
+If you forget to add `--recurse-submodules` then you can clone submodules afterwards as follows:
+```
+git submodule init
+git submodule update
+```
+See [the official git documentation](https://git-scm.com/book/en/v2/Git-Tools-Submodules) or the [GitHub submodule guide](https://github.blog/open-source/git/working-with-submodules/) for more tips on working with submodules.
+
+The recommended location for the workflow profile within a workflow repo is `profiles/workflow/config.yaml`.
+Track this file within the parent workflow repo.
+
 
 ## Version control
 
