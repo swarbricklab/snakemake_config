@@ -16,7 +16,7 @@ It can also be used in conjuction with a workflow profile, which would include w
 #### `config.yaml`
 
 This is the starting point for the Snakemake profile.
-The config defined here is read when `--workflow-profile workflow/profiles/pbspro` is specified with the `snakemake` command.
+The config defined here is read when `--profile workflow/profiles/pbspro` is specified with the `snakemake` command.
 
 The options here can be broadly divided into two blocks:
 1. settings for interacting with PBS Pro
@@ -55,7 +55,7 @@ The result is reported back to Snakemake as either "running", "success" or "fail
 Snakemake then makes decisions such as to whether to wait, restart the job or submit follow up jobs according to this report.
 
 This script is specified for the `cluster-status` option in `config.yaml` above. 
-Snakemake reads this script to check on the status of submitted jobs every 10 seconds (not configurable).
-TODO: modify `pbs_status.sh` so that it only polls jobs every couple of minutes.
+Snakemake reads this script to check on the status of submitted jobs every 10 seconds (not configurable) but only actually checks the job status every two minutes in order to avoid spamming the job scheduler.
+This means that it can take up to two minutes for Snakemake to realise that a job has finished, but this is the price that we pay for being good NCI citizens.
 
 As well as reporting back to Snakemake, this script also records its observations in `logs/status_errors.log`, which can be used to debug problems with the interface between Snakemake and PBS Pro.
