@@ -33,5 +33,3 @@ default-resources:
   mem_mb: "4000"
   threads: "1"
   disk_mb: "100"
-  # Jobscript template used by cellranger, spaceranger etc in cluster mode
-  jobmode: "'profiles/global/nci_a56/resources/pbspro.template'"
