@@ -127,7 +127,7 @@ for key in params:
         logging.warning(
             f"parameter '{key}' not in keymapping! It would be better if you add the key to the file: {key_mapping_file} \n I try without the key!"
         )
-    elif (key == "operand") or (key == 'tmpdir') or (key == "jobid") or (key == "runtime"):
+    elif key in ["operand", "tmpdir", "jobid", "runtime", "jobmode", "maxjobs", "jobinterval", "mempercore"]:
         pass
     else:
         command += " "
