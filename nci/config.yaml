@@ -1,7 +1,15 @@
-# Global Snakemake config for snakemake workflows run under Project a56
+__use_yte__: true
+
+__definitions__:
+  - import os
+
+__variables__:
+  PROJECT: ?os.getenv("PROJECT")
+  STORAGE: ?"gdata/"+os.getenv("PROJECT")
+
+# Global Snakemake config for snakemake workflows
 # Config specified here is merged with workflow-specific config
 
-# File specifying PBS settings for Project a56
 jobname: "{name}.{jobid}"
 cluster: "pbs_submit.py"
 cluster-status: "pbs_status.sh"
@@ -26,8 +34,8 @@ local-cores: 1
 # Default resources
 default-resources:
   # Team settings
-  project: "a56"
-  storage: "gdata/a56"
+  project: ?PROJECT
+  storage: ?STORAGE
   # NCI defaults
   runtime: "600" # minutes
   mem_mb: "4000"
