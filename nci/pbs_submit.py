@@ -120,15 +120,16 @@ command_options = yaml.load(open(key_mapping_file), Loader=yaml.BaseLoader)
 system = command_options["system"]
 command = command_options[system]["command"]
 key_mapping = command_options[system]["key_mapping"]
+special_keys = command_options[system]["special"]
 
 # construct command:
 for key in params:
-    if (key not in key_mapping) and (key != 'tmpdir'):
+    if key in special_keys:
+        pass
+    elif (key not in key_mapping):
         logging.warning(
             f"parameter '{key}' not in keymapping! It would be better if you add the key to the file: {key_mapping_file} \n I try without the key!"
         )
-    elif key in ["operand", "tmpdir", "jobid", "runtime", "jobmode", "maxjobs", "jobinterval", "mempercore"]:
-        pass
     else:
         command += " "
         command += key_mapping[key].format(params[key])

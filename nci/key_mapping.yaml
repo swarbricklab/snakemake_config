@@ -13,9 +13,13 @@ pbspro:
     mem_mb: "-l mem={}mb"
     disk_mb: "-l jobfs={}mb"
     jobid: "{}"
-    runtime: null
-    jobmode: null
-    mempercore: null
-    maxjobs: null
-    jobinterval: null
-    queue: null
+  special:
+    - operand
+    - jobid
+    - runtime
+    - jobmode
+    - mempercore
+    - maxjobs
+    - jobinterval
+    - queue
+    - tmpdir
