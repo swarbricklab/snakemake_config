@@ -41,4 +41,5 @@ default-resources:
   mem_mb: "4000"
   threads: "1"
   disk_mb: "100"
+  jobmode: "pbspro" # used by Martian Runtime in 10X tools
 
