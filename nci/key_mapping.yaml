@@ -18,6 +18,7 @@ pbspro:
     - jobid
     - runtime
     - jobmode
+    - override
     - mempercore
     - maxjobs
     - jobinterval
