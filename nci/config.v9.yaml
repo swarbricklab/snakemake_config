@@ -1,0 +1,36 @@
+__version__: 9
+
+executor: cluster-generic
+
+cluster-generic-submit-cmd: "pbs_submit.py"
+cluster-generic-status-cmd: "pbs_status.sh"
+cluster-generic-cancel-cmd: "qdel"
+
+# Job naming template
+jobname: "{name}.{jobid}"
+
+# Software deployment
+software-deployment-method: "conda apptainer"
+
+# Conda and Apptainer/Singularity settings
+conda-prefix: /g/data/${PROJECT}/conda/snakecache/
+apptainer-prefix: /g/data/${PROJECT}/software/singularity/images
+apptainer-args: "--bind /g/data/${PROJECT},/scratch/${PROJECT}"
+
+# Snakemake settings
+jobs: 1000
+max-jobs-per-second: 1
+max-status-checks-per-second: 10
+latency-wait: 60
+cores: 99
+local-cores: 1
+
+# Default resources
+default-resources:
+  project: ${PROJECT}
+  storage: gdata/${PROJECT}
+  runtime: "600"
+  mem_mb: "4000"
+  threads: "1"
+  disk_mb: "100"
+  jobmode: "pbspro"
