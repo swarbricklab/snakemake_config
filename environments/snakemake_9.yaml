@@ -1,0 +1,20 @@
+name: snakemake_9
+
+channels:
+    - conda-forge
+    - bioconda
+    - default
+
+dependencies:
+    - python>=3.11
+    - snakemake=9.16.0
+    - snakemake-executor-plugin-cluster-generic
+    - eido
+    - peppy<0.40
+    - yq
+    - mamba
+    - drmaa
+    - click
+    - csvkit
+    - pv
+    - git>=2.7.2

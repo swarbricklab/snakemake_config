@@ -11,17 +11,22 @@ __variables__:
 # Config specified here is merged with workflow-specific config
 
 jobname: "{name}.{jobid}"
-cluster: "pbs_submit.py"
-cluster-status: "pbs_status.sh"
-cluster-cancel: "qdel"
+
+# Executor plugin configuration (Snakemake 8+ replaces cluster: directive)
+executor: cluster-generic
+cluster-generic-submit-cmd: "pbs_submit.py"
+cluster-generic-status-cmd: "pbs_status.sh"
+cluster-generic-cancel-cmd: "qdel"
 
 # Conda settings
 conda-prefix: /g/data/a56/conda/snakecache/
 
-# Singularity settings
-use-singularity: true
+# Software deployment (Snakemake 8+ replaces use-singularity: true)
+software-deployment-method:
+  - conda
+  - apptainer
 singularity-prefix: "/g/data/a56/software/singularity/images"
-singularity-args:   "--bind /g/data/a56,/scratch/a56"
+singularity-args: "--bind /g/data/a56,/scratch/a56"
 
 # Snakemake settings
 jobs: 1000
