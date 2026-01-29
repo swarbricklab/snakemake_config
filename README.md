@@ -73,7 +73,7 @@ In stand-alone mode, this equates to the top level of the workflow repo.
 In module mode, this translates to the top level of the dataset repo.
 
 For global profiles, Snakemake will also search paths relative to `$XDG_CONFIG_DIRS/snakemake`.
-On NCI, the `XDG_CONFIG_DIRS` environment variable is set to `/g/data/a56/config` when the `snakemake_7.32.4` conda environment is activated, but you can set this variable to alternative location in order to test alternative profiles.
+On NCI, the `XDG_CONFIG_DIRS` environment variable is set to `/g/data/a56/config` when the `snakemake_9` conda environment is activated, but you can set this variable to alternative location in order to test alternative profiles.
 
 However, the preferred solution is to embed global profiles into workflow repos by installing this repo as a submodule of the workflow repo.
 This allows _a particular version_ of the global profile to be specified via a relative path from the top level of the workflow or dataset repo.

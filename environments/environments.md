@@ -13,7 +13,9 @@ Here `{EDF}` is the environment definition file.
 
 For example ..
 ```
-conda env create -f snakemake_7.32.4.yaml
+conda env create -f snakemake_9.yaml
 ```
+
+Note: `snakemake_7.32.4.yaml` is retained for backwards compatibility but `snakemake_9.yaml` is the recommended version.
 
 The location of the conda environment created by this command is determined by your `~/.condarc` and defaults to `~/.conda` if you do not have a `~/.condarc` file.
