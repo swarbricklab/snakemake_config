@@ -136,7 +136,11 @@ for key in params:
 
 # Fetch provided queue if specified in the job properties
 provided_queue = params.get("queue", None)
-log_dir="logs/joblogs/{}".format(params["name"])
+# PIPELINE_RUN_LABEL namespaces joblogs per pipeline invocation. Snakemake's jobid
+# counter restarts at 0 per invocation, so two concurrent runs sharing a working
+# directory would otherwise write identical joblog filenames and clobber each other.
+run_label = os.environ.get("PIPELINE_RUN_LABEL", "")
+log_dir = os.path.join("logs/joblogs", run_label, params["name"])
 os.makedirs(log_dir, exist_ok=True)
 command += select_queue(params["mem_mb"], params["disk_mb"], provided_queue)
 command += calculate_walltime(params["runtime"])
