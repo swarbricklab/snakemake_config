@@ -6,6 +6,13 @@
 # cores_per_node). Memory is charged as the share of a node it reserves, which is why a
 # large-memory, few-thread job is cheaper on hugemem than on normal.
 #
+# `max_walltime_hours` is the limit for a single-node request, which is all these rows
+# allow; NCI's Queue Limits page cuts the walltime for wider jobs, so raising `max_ncpus`
+# past one node means reading that table again. Queue run limits come from `qstat -Qf
+# <queue>-exec` and `qstat -Bf` (2026-09-16), and they matter more than the rate: a cheap
+# queue that runs four of the project's jobs at a time is slower than a dearer one that
+# runs them all.
+#
 # A row is `enabled` only after a job of this project ran on the queue. `auto: false` keeps
 # an enabled row out of cost-based selection, so only a rule's `queue` resource reaches it.
 # `min_mem_gb` is a floor the scheduler enforces: a request below it does not fit the row
@@ -64,6 +71,14 @@ queues:
     gpus: false
   hugemembw:
     enabled: true
+    # `auto: false` since 2026-09-16, although it is the cheapest rate on Gadi. The queue is
+    # 10 Broadwell nodes and `hugemembw-exec` carries `max_run = 4` per project and per user,
+    # so cost-based selection would send every job above its 256 GB floor to a queue that
+    # runs four of them at a time (252 of its 280 cores were already assigned when this was
+    # measured). Those jobs go to `hugemem` instead, about 2.7 times the charge per hour and
+    # 50 nodes with a 1440-core project allowance. A rule that is worth the wait asks for
+    # this queue by name with a `queue` resource.
+    auto: false
     su_per_core_hour: 1.25
     cores_per_node: 28
     mem_per_node_gb: 1024
@@ -97,7 +112,7 @@ queues:
     min_ncpus: 1
     max_ncpus: 1
     max_walltime_hours: 10
-    max_jobfs_gb: 200
+    max_jobfs_gb: 800       # NCI's Queue Structure page; the only queue above 400 GB besides hugemem and megamem
     gpus: false
   gpuvolta:
     enabled: false            # enabled by editing this row when the first GPU rule lands
