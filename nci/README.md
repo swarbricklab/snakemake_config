@@ -59,3 +59,73 @@ Snakemake reads this script to check on the status of submitted jobs every 10 se
 This means that it can take up to two minutes for Snakemake to realise that a job has finished, but this is the price that we pay for being good NCI citizens.
 
 As well as reporting back to Snakemake, this script also records its observations in `logs/status_errors.log`, which can be used to debug problems with the interface between Snakemake and PBS Pro.
+
+## Snakemake 9 scripts: `submit_pbs.py`, `status_pbs.py`, and `queues.yaml`
+
+Added 2026-09-16 for the seamark pipeline's Gadi profile. They supersede `pbs_submit.py`,
+`pbs_status.sh`, and `key_mapping.yaml` above, which stay until the workflows that use
+them move over. Both scripts are plain Python 3 (PyYAML is the one dependency) and know
+nothing about any particular workflow: everything they need is in the jobscript that
+Snakemake writes and in the options a profile passes.
+
+A workflow profile uses them like this (the scripts on `PATH`, or named by path):
+
+```yaml
+executor: cluster-generic
+cluster-generic-submit-cmd: >-
+  submit_pbs.py --project a56 --storage gdata/a56+scratch/a56 --pass-env SEAMARK_SIF_DIR
+cluster-generic-status-cmd: status_pbs.py --interval 60
+cluster-generic-cancel-cmd: qdel
+```
+
+### `submit_pbs.py`
+
+Reads the rule, `threads`, and the resources from the jobscript's `# properties = ` line
+(`mem_mb`, `runtime` in minutes, `disk_mb`, and optionally `gpus` and `queue`), chooses the
+cheapest enabled queue in `queues.yaml` that the job fits, and submits it.
+
+- The charge on Gadi is `SU per hour = rate x max(ncpus, memory share of a node)`, so the
+  script prices every enabled row and takes the minimum. A large-memory job on few threads
+  therefore goes to `hugemem` or `hugemembw`, whose nodes are bigger, rather than to
+  `normal`. A rule can name a queue with a `queue` resource; that is the only way to reach
+  a row marked `auto: false`, such as `copyq`.
+- `ncpus` is `threads` raised to the queue's minimum (and whole GPUs on a GPU queue);
+  memory is requested as declared; walltime comes from `runtime`; `jobfs` from `disk_mb`.
+  A queue whose memory floor the request does not meet is not a candidate: the floors say
+  which jobs belong on the large-memory nodes, and inflating a request to reach a cheaper
+  rate would occupy those nodes and send most jobs to a small queue. Cores that the memory
+  share already pays for are not requested either, because the charge is the same and a
+  smaller request starts sooner.
+- The PBS log (stdout and stderr joined) goes to a `pbs/` directory beside the job's first
+  declared log, named after that log plus the submission time, so every attempt keeps its
+  own file. A rule without a log writes to `logs/pbs/`.
+- The environment is never exported wholesale (no `-V`); `--pass-env` lists the variables
+  a job needs. `-l storage` and `-P` come from the profile's options.
+- One line per submission goes to stderr with the job id, queue, request, estimated SU per
+  hour, and log path. A refused submission exits with `qsub`'s code and message.
+
+### `status_pbs.py`
+
+Answers Snakemake with exactly one word, `running`, `success`, or `failed`, and never exits
+non-zero, because anything else aborts the whole workflow.
+
+- Snakemake calls it once per active job per polling round. The script keeps a small cache
+  under `.snakemake/pbs_status/` in the working directory and asks `qstat -x -f -F json`
+  about all the jobs it is watching in one call, at most once per `--interval` seconds
+  (default 60). Hundreds of active jobs therefore cost one `qstat` a minute.
+- Queued, running, held, suspended, and exiting jobs are `running`; a held job is logged
+  once. A finished job is `success` on `Exit_status` 0 and `failed` otherwise; negative
+  statuses are PBS kills (`-29` is the walltime limit). A job `qstat` no longer knows,
+  which happens 24 hours after it finished, is `failed`, so Snakemake redoes it rather than
+  waiting forever. A `qstat` that fails or times out changes nothing and answers `running`.
+- Events go to `.snakemake/pbs_status/status.log`.
+
+### `queues.yaml`
+
+The Gadi queue table: rates, node sizes, per-job limits, and the floors the scheduler
+enforces, with the date they were checked. A row is enabled once a job of the project has
+run on that queue; `gpuvolta` is present and disabled until a workflow needs it.
+
+The scripts are tested from the seamark repository, which checks this repository out as a
+submodule, against a fake `qsub` and `qstat` (`tests/unit/profiles/test_gadi_pbs_scripts.py`
+there).
