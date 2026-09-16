@@ -1,0 +1,116 @@
+# Gadi queue table read by submit_pbs.py (this directory). Site facts only; never a rule's
+# numbers. Values come from NCI's Queue Limits and Job Costs pages (revised 2026-06-07),
+# corrected where a probe on 2026-09-16 measured what the scheduler actually enforces.
+#
+# Charging on Gadi: SU per hour = su_per_core_hour x max(ncpus, mem_gb / mem_per_node_gb x
+# cores_per_node). Memory is charged as the share of a node it reserves, which is why a
+# large-memory, few-thread job is cheaper on hugemem than on normal.
+#
+# A row is `enabled` only after a job of this project ran on the queue. `auto: false` keeps
+# an enabled row out of cost-based selection, so only a rule's `queue` resource reaches it.
+# `min_mem_gb` is a floor the scheduler enforces: a request below it does not fit the row
+# (it is never inflated to reach a cheaper rate, because the floors say which jobs belong
+# on the large-memory nodes). `min_ncpus` is a minimum the request is raised to.
+# `gpus: true` rows take `ngpus` and book `ncpus_per_gpu` cores per GPU.
+checked: 2026-09-16
+queues:
+  normal:
+    enabled: true
+    su_per_core_hour: 2.0
+    cores_per_node: 48
+    mem_per_node_gb: 192      # nominal, the value the charge formula uses (measured 2026-09-16)
+    max_mem_gb: 190
+    min_mem_gb: 0
+    min_ncpus: 1
+    max_ncpus: 48             # one node; multi-node requests are out of scope
+    max_walltime_hours: 48
+    max_jobfs_gb: 400
+    gpus: false
+  normalsr:
+    enabled: true             # accepted a job on 2026-09-16 although `qstat -Q` omits it
+    su_per_core_hour: 2.0
+    cores_per_node: 104
+    mem_per_node_gb: 512      # nominal per NCI's page (500 GB usable); not measured
+    max_mem_gb: 500
+    min_mem_gb: 0
+    min_ncpus: 1
+    max_ncpus: 104
+    max_walltime_hours: 48
+    max_jobfs_gb: 400
+    gpus: false
+  express:
+    enabled: false            # 6 SU per core hour; nothing in the pipeline is that urgent
+    su_per_core_hour: 6.0
+    cores_per_node: 48
+    mem_per_node_gb: 192
+    max_mem_gb: 190
+    min_mem_gb: 0
+    min_ncpus: 1
+    max_ncpus: 48
+    max_walltime_hours: 24
+    max_jobfs_gb: 400
+    gpus: false
+  hugemem:
+    enabled: true
+    su_per_core_hour: 3.0
+    cores_per_node: 48
+    mem_per_node_gb: 1536     # nominal 1.5 TB, the value the charge formula uses (measured 2026-09-16)
+    max_mem_gb: 1470
+    min_mem_gb: 192           # the scheduler refuses less (probe, 2026-09-16)
+    min_ncpus: 1
+    max_ncpus: 48
+    max_walltime_hours: 48
+    max_jobfs_gb: 1400
+    gpus: false
+  hugemembw:
+    enabled: true
+    su_per_core_hour: 1.25
+    cores_per_node: 28
+    mem_per_node_gb: 1024
+    max_mem_gb: 1020
+    min_mem_gb: 256           # the scheduler refuses less (probe, 2026-09-16)
+    min_ncpus: 7
+    max_ncpus: 28
+    max_walltime_hours: 48
+    max_jobfs_gb: 390
+    gpus: false
+  megamem:
+    enabled: false            # not yet probed; the only queue above 1.5 TB
+    su_per_core_hour: 5.0
+    cores_per_node: 48
+    mem_per_node_gb: 3072
+    max_mem_gb: 2990
+    min_mem_gb: 0             # floor unknown until probed
+    min_ncpus: 1
+    max_ncpus: 48
+    max_walltime_hours: 48
+    max_jobfs_gb: 1400
+    gpus: false
+  copyq:
+    enabled: true
+    auto: false               # the queue with network access; only for a rule that asks
+    su_per_core_hour: 2.0
+    cores_per_node: 1
+    mem_per_node_gb: 192
+    max_mem_gb: 190
+    min_mem_gb: 0
+    min_ncpus: 1
+    max_ncpus: 1
+    max_walltime_hours: 10
+    max_jobfs_gb: 200
+    gpus: false
+  gpuvolta:
+    enabled: false            # enabled by editing this row when the first GPU rule lands
+    su_per_core_hour: 3.0
+    cores_per_node: 48
+    mem_per_node_gb: 384
+    max_mem_gb: 382
+    min_mem_gb: 0
+    min_ncpus: 12
+    max_ncpus: 48
+    max_walltime_hours: 48
+    max_jobfs_gb: 400
+    gpus: true
+    ncpus_per_gpu: 12
+# Also on Gadi and not listed until needed: megamembw, normalbw, expressbw, normalsl,
+# dgxa100 (accepted a 16-core, one-GPU job on 2026-09-16), and the restricted queues.
