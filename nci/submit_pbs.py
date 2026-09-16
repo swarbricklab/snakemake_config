@@ -255,10 +255,20 @@ def pbs_log_path(properties: dict, subdir: str, stamp: str) -> Path:
     return Path("logs") / subdir / f"{rule}.{properties.get('jobid', 0)}.{stamp}.log"
 
 
+#: PBS Pro accepts job names up to 236 characters; `qstat -w` shows them in full.
+MAX_JOB_NAME = 236
+
+
 def job_name(properties: dict) -> str:
-    """Return a PBS job name from the rule: letters, digits, `_.-`, starting with a letter."""
+    """Return a PBS job name from the rule and its wildcard values: `rule.value.value`.
+
+    The wildcards are what tell two jobs of one rule apart in `qstat -u`, which otherwise
+    shows a column of identical rule names. Letters, digits, and `_.-` only, starting with
+    a letter.
+    """
     raw = str(properties.get("rule") or properties.get("groupid") or "job")
-    name = re.sub(r"[^A-Za-z0-9_.-]", "_", raw)
+    parts = [raw, *(str(value) for value in (properties.get("wildcards") or {}).values())]
+    name = re.sub(r"[^A-Za-z0-9_.-]", "_", ".".join(parts))[:MAX_JOB_NAME]
     return name if name[:1].isalpha() else f"j{name}"
 
 
