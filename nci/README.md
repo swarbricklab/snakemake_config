@@ -73,7 +73,7 @@ A workflow profile uses them like this (the scripts on `PATH`, or named by path)
 ```yaml
 executor: cluster-generic
 cluster-generic-submit-cmd: >-
-  submit_pbs.py --project a56 --storage gdata/a56+scratch/a56 --pass-env SEAMARK_SIF_DIR
+  submit_pbs.py --project a56 --storage gdata/a56+scratch/a56 --umask 0027
 cluster-generic-status-cmd: status_pbs.py --interval 60
 cluster-generic-cancel-cmd: qdel
 ```
@@ -81,8 +81,9 @@ cluster-generic-cancel-cmd: qdel
 ### `submit_pbs.py`
 
 Reads the rule, `threads`, and the resources from the jobscript's `# properties = ` line
-(`mem_mb`, `runtime` in minutes, `disk_mb`, and optionally `gpus` and `queue`), chooses the
-cheapest enabled queue in `queues.yaml` that the job fits, and submits it.
+(`mem_mb`, `runtime` in minutes, `disk_mb`, and optionally `gpu`, Snakemake's standard GPU
+count, and `queue`), chooses the cheapest enabled queue in `queues.yaml` that the job fits,
+and submits it.
 
 - The charge on Gadi is `SU per hour = rate x max(ncpus, memory share of a node)`, so the
   script prices every enabled row and takes the minimum. A large-memory job on few threads
@@ -99,8 +100,11 @@ cheapest enabled queue in `queues.yaml` that the job fits, and submits it.
 - The PBS log (stdout and stderr joined) goes to a `pbs/` directory beside the job's first
   declared log, named after that log plus the submission time, so every attempt keeps its
   own file. A rule without a log writes to `logs/pbs/`.
-- The environment is never exported wholesale (no `-V`); `--pass-env` lists the variables
-  a job needs. `-l storage` and `-P` come from the profile's options.
+- The environment is never exported wholesale (no `-V`). Snakemake's `envvars:` setting
+  already exports each declared variable into the job command, so `--pass-env`, which
+  copies further variables with `-v`, is rarely needed. `-l storage`, `-P`, and `-W umask`
+  come from the profile's options; PBS's default umask of 077 makes the PBS log readable by
+  its owner alone, and `--umask 0027` opens it to the group.
 - One line per submission goes to stderr with the job id, queue, request, estimated SU per
   hour, and log path. A refused submission exits with `qsub`'s code and message.
 

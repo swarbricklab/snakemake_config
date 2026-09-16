@@ -8,8 +8,9 @@ jobscript path:
 
 The jobscript's `# properties = {...}` line carries the rule name, Snakemake's `threads`,
 and the resources in Snakemake's own vocabulary: `mem_mb`, `runtime` (minutes), `disk_mb`,
-and optionally `gpus` and `queue`. Nothing here belongs to one workflow; the site facts
-live in `queues.yaml` beside this file and in the options the profile passes.
+and optionally `gpu` (Snakemake's standard GPU count) and `queue`. Nothing here belongs to
+one workflow; the site facts live in `queues.yaml` beside this file and in the options the
+profile passes.
 
 Queue choice minimizes the charge per hour over the enabled rows of the table, among the
 rows the job fits (memory, cores, walltime, jobfs, GPUs). The request asks for `threads`
@@ -25,9 +26,13 @@ declared log, named after that log with the submission time appended, so every a
 keeps its own file: `logs/<cohort>/<stage>/pbs/<rule>.<wildcards>.<stamp>.log` in
 seamark's layout, or `logs/pbs/<rule>.<jobid>.<stamp>.log` for a rule without a log.
 
-The environment is never exported wholesale (no `qsub -V`); `--pass-env` names the
-variables a job needs and `qsub -v NAME` copies each from this process. The PBS job id
-goes to stdout; a refused submission exits with qsub's code and its message on stderr.
+The environment is never exported wholesale (no `qsub -V`). Snakemake's own `envvars:`
+setting already exports each declared variable into the job command, so a profile rarely
+needs more; `--pass-env` names any further variables and `qsub -v NAME` copies each from
+this process. `--umask` sets the job's umask, which PBS also applies to the job's own log:
+its default of 077 leaves that file readable by its owner alone, and `0027` opens it to
+the group. The PBS job id goes to stdout; a refused submission exits with qsub's code and
+its message on stderr.
 """
 
 from __future__ import annotations
@@ -115,30 +120,30 @@ def load_queue_table(path: Path) -> dict[str, dict]:
     return table
 
 
-def _cores(row: dict, threads: int, gpus: int) -> tuple[int, int]:
+def _cores(row: dict, threads: int, gpu: int) -> tuple[int, int]:
     """Return (ncpus, ngpus) for one row: threads raised to its minimum, GPUs in whole units."""
     ncpus = max(threads, int(row["min_ncpus"]))
     if not row["gpus"]:
         return ncpus, 0
     per_gpu = int(row["ncpus_per_gpu"])
-    ngpus = max(gpus, math.ceil(ncpus / per_gpu))
+    ngpus = max(gpu, math.ceil(ncpus / per_gpu))
     return per_gpu * ngpus, ngpus
 
 
 def _misfit(
-    row: dict, *, threads: int, mem_mb: int, runtime_min: float, disk_mb: int, gpus: int
+    row: dict, *, threads: int, mem_mb: int, runtime_min: float, disk_mb: int, gpu: int
 ) -> str | None:
     """Return why the job does not fit the row, or None when it does."""
-    if gpus and not row["gpus"]:
+    if gpu and not row["gpus"]:
         return "no GPUs"
-    if row["gpus"] and not gpus:
-        return "a GPU queue needs a gpus request"
+    if row["gpus"] and not gpu:
+        return "a GPU queue needs a gpu request"
     mem_gb = mem_mb / 1024
     if mem_gb > float(row["max_mem_gb"]):
         return f"memory {mem_gb:g} GB above its {row['max_mem_gb']} GB"
     if mem_gb < float(row["min_mem_gb"]):
         return f"memory {mem_gb:g} GB below its {row['min_mem_gb']} GB floor"
-    ncpus, _ = _cores(row, threads, gpus)
+    ncpus, _ = _cores(row, threads, gpu)
     if ncpus > int(row["max_ncpus"]):
         return f"{ncpus} cores above its {row['max_ncpus']}"
     if runtime_min / 60 > float(row["max_walltime_hours"]):
@@ -149,10 +154,10 @@ def _misfit(
 
 
 def _allocation(
-    name: str, row: dict, *, threads: int, mem_mb: int, runtime_min: float, disk_mb: int, gpus: int
+    name: str, row: dict, *, threads: int, mem_mb: int, runtime_min: float, disk_mb: int, gpu: int
 ) -> Allocation:
     """Build the request for one fitting row and price it with Gadi's charge formula."""
-    ncpus, ngpus = _cores(row, threads, gpus)
+    ncpus, ngpus = _cores(row, threads, gpu)
     memory_share = mem_mb / 1024 / float(row["mem_per_node_gb"]) * int(row["cores_per_node"])
     su_per_hour = float(row["su_per_core_hour"]) * max(ncpus, memory_share)
     return Allocation(
@@ -189,13 +194,16 @@ def allocate(properties: dict, table: dict[str, dict]) -> Allocation:
     mem_mb = math.ceil(_required(resources, "mem_mb", rule))
     runtime_min = _required(resources, "runtime", rule)
     disk_mb = math.ceil(float(resources.get("disk_mb") or 0))
-    gpus = int(resources.get("gpus") or 0)
+    # `gpu` is Snakemake's standard GPU count (with `gpu_model` and `gpu_manufacturer`
+    # beside it, which no queue here distinguishes), so a rule that asks for one asks the
+    # same way on every executor.
+    gpu = int(resources.get("gpu") or 0)
     request = {
         "threads": threads,
         "mem_mb": mem_mb,
         "runtime_min": runtime_min,
         "disk_mb": disk_mb,
-        "gpus": gpus,
+        "gpu": gpu,
     }
 
     requested = resources.get("queue")
@@ -227,7 +235,7 @@ def allocate(properties: dict, table: dict[str, dict]) -> Allocation:
     if not fits:
         raise SubmitError(
             f"no enabled queue fits rule {rule!r} (threads={threads}, mem_mb={mem_mb}, "
-            f"runtime={runtime_min:g} min, disk_mb={disk_mb}, gpus={gpus}): "
+            f"runtime={runtime_min:g} min, disk_mb={disk_mb}, gpu={gpu}): "
             + "; ".join(reasons)
             + "; fix: change the request or enable a queue in queues.yaml"
         )
@@ -285,6 +293,8 @@ def build_command(
         command += ["-l", f"storage={args.storage}"]
     if args.pass_env:
         command += ["-v", ",".join(args.pass_env)]
+    if args.umask:
+        command += ["-W", f"umask={args.umask}"]
     return [*command, str(args.jobscript)]
 
 
@@ -310,6 +320,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=[],
         metavar="NAMES",
         help="comma-separated environment variables to copy into the job (repeatable)",
+    )
+    parser.add_argument(
+        "--umask",
+        help=(
+            "the job's umask (-W umask), which PBS also applies to the PBS log; its default "
+            "077 leaves the log readable by its owner alone, 0027 opens it to the group"
+        ),
     )
     parser.add_argument(
         "--log-subdir",
