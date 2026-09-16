@@ -107,6 +107,8 @@ and submits it.
   its owner alone, and `--umask 0027` opens it to the group.
 - One line per submission goes to stderr with the job id, queue, request, estimated SU per
   hour, and log path. A refused submission exits with `qsub`'s code and message.
+- The PBS job name is the rule followed by its wildcard values, `rule.value.value`, so
+  `qstat -u $USER` tells the sections of one rule apart (`qstat -w` shows the full name).
 
 ### `status_pbs.py`
 
