@@ -1,7 +1,7 @@
 # Global Snakemake Profiles
 
 This repo tracks global Snakemake profiles used by the Swarbrick Lab on the following platforms:
-- [The Australian National Compute Infrastructure (NCI)](nci_a56)
+- [The Australian National Compute Infrastructure (NCI)](nci)
 - The Garvan HPC
 
 Profiles for additional platforms will be added as the need arises.
