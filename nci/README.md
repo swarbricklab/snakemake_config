@@ -1,6 +1,6 @@
-# Snakemake profile for Project a56 on NCI
+# Snakemake profile for PBS Pro on NCI
 
-Source: Simpleified from scripts originally authored by Derrick Lin, which in turn were heavily based on a PBS profile on GitHub (can't find link).
+Source: simplified from scripts originally authored by Derrick Lin, which were in turn based on [metagenome-atlas/clusterprofile](https://github.com/metagenome-atlas/clusterprofile) (MIT, © 2017 Silas Kieser). See [THIRD_PARTY.md](../THIRD_PARTY.md).
 
 NB: None of the profiles on [Snakemake-Profiles](https://github.com/Snakemake-Profiles) worked out of the box, and development appears to have stalled there.
 
@@ -12,11 +12,29 @@ The profile then monitors these jobs and reports their exit status back to snake
 This profile is intended to be used as a global profile that can be used across multiple workflows.
 It can also be used in conjuction with a workflow profile, which would include workflow-specific options.
 
+## Adapting this profile
+
+The settings here are specific to the Swarbrick Lab's allocation on NCI Gadi, and are meant to be **copied and edited** rather than used as-is.
+If you are working under a different project, or on a different PBS Pro system, copy this directory and change at least the following in `config.yaml`:
+
+| Setting | Why |
+|---------|-----|
+| `default-resources: project` | Your NCI project code (ours is `a56`) |
+| `default-resources: storage` | The storage volumes your jobs need to mount |
+| `conda-prefix` | A path you can write to |
+| `singularity-prefix` | A path you can write to |
+| `singularity-args` | The bind mounts your jobs need |
+
+The queue names and memory limits in `pbs_submit.py` (`select_queue`) follow the [NCI Gadi queue limits](https://opus.nci.org.au/display/Help/Queue+Limits) and will need revisiting on any other site.
+
+`key_mapping.yaml` is the portability layer: it maps the human-readable resource names used in workflows onto PBS Pro submission options.
+Supporting a different scheduler should mostly be a matter of adding a mapping block for it.
+
 
 #### `config.yaml`
 
 This is the starting point for the Snakemake profile.
-The config defined here is read when `--profile workflow/profiles/pbspro` is specified with the `snakemake` command.
+The config defined here is read when this directory is passed to the `--profile` option of the `snakemake` command, for example `--profile profiles/global/nci`.
 
 The options here can be broadly divided into two blocks:
 1. settings for interacting with PBS Pro
@@ -58,4 +76,4 @@ This script is specified for the `cluster-status` option in `config.yaml` above.
 Snakemake reads this script to check on the status of submitted jobs every 10 seconds (not configurable) but only actually checks the job status every two minutes in order to avoid spamming the job scheduler.
 This means that it can take up to two minutes for Snakemake to realise that a job has finished, but this is the price that we pay for being good NCI citizens.
 
-As well as reporting back to Snakemake, this script also records its observations in `logs/status_errors.log`, which can be used to debug problems with the interface between Snakemake and PBS Pro.
+As well as reporting back to Snakemake, this script also records its observations in `logs/joblogs/job_status.log`, which can be used to debug problems with the interface between Snakemake and PBS Pro.
