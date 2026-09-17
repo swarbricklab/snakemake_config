@@ -24,7 +24,10 @@ same and a smaller request schedules sooner.
 The PBS log (stdout and stderr joined) goes to a `pbs/` directory beside the job's first
 declared log, named after that log with the submission time appended, so every attempt
 keeps its own file: `logs/<cohort>/<stage>/pbs/<rule>.<wildcards>.<stamp>.log` in
-seamark's layout, or `logs/pbs/<rule>.<jobid>.<stamp>.log` for a rule without a log.
+seamark's layout, or `logs/pbs/<rule>.<jobid>.<stamp>.log` for a rule without a log. The
+path is also written to `<status cache>/joblogs/<jobid>`, because PBS appends its resource
+usage block to that file when the job ends and `status_pbs.py` reads the job's state from
+it instead of asking the scheduler.
 
 The environment is never exported wholesale (no `qsub -V`). Snakemake's own `envvars:`
 setting already exports each declared variable into the job command, so a profile rarely
@@ -308,6 +311,23 @@ def build_command(
     return [*command, str(args.jobscript)]
 
 
+def record_log_path(cache: Path, jobid: str, log_path: Path) -> None:
+    """Tell the status script where this job's PBS log is, so it can read the job's end there.
+
+    A record that cannot be written is not a failed submission: the status script falls
+    back to `qstat` for any job it has no record of, which is what it did before.
+    """
+    try:
+        directory = cache / "joblogs"
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / jobid).write_text(f"{log_path}\n", encoding="utf-8")
+    except OSError as error:
+        print(
+            f"submit_pbs: no log record for {jobid} ({error}); qstat will answer for it",
+            file=sys.stderr,
+        )
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse the options the profile passes and the jobscript Snakemake appends."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -344,6 +364,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="the directory beside the declared log for the PBS log (default: pbs)",
     )
     parser.add_argument(
+        "--status-cache",
+        type=Path,
+        default=Path(".snakemake") / "pbs_status",
+        help=(
+            "where to record the job's PBS log path for the status script "
+            "(default: .snakemake/pbs_status, status_pbs.py's own default)"
+        ),
+    )
+    parser.add_argument(
         "--qsub", default="qsub", help="the qsub command (tests substitute a fake)"
     )
     args = parser.parse_args(argv)
@@ -377,6 +406,7 @@ def main(argv: list[str]) -> int:
         print(f"submit_pbs: command was: {shlex.join(command)}", file=sys.stderr)
         return completed.returncode
     jobid = completed.stdout.strip()
+    record_log_path(args.status_cache, jobid, log_path)
     print(
         f"submit_pbs: {jobid} {rule} on {allocation.queue}: ncpus={allocation.ncpus} "
         f"mem={allocation.mem_mb}MB walltime={allocation.walltime} jobfs={allocation.jobfs_mb}MB"

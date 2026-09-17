@@ -2,13 +2,22 @@
 """Report one PBS job's state to Snakemake as exactly one of running, success, or failed.
 
 Snakemake's cluster-generic executor runs `status_pbs.py JOBID` for every active job on
-each polling round. To spare the scheduler, this script asks `qstat` about all the jobs
-it is watching in one call, at most once per `--interval` seconds, and answers the other
-calls from that cache (`.snakemake/pbs_status/` under the working directory). It never
-exits non-zero and never prints a second line, because either aborts the whole workflow.
+each polling round. A job that has ended is read from its own PBS log: PBS appends a
+resource usage block to that file when the job ends, whatever ended it, and the block
+carries the exit status and what the job spent against what it asked for. The submit
+script records where each job's log is (`joblogs/` in the cache directory), so this
+answer costs one open of a known file and asks the scheduler nothing.
+
+`qstat` answers what no log can: a job that is held, one that was deleted before it
+started, and one that never reached the queue. Those have no block to read, so the script
+asks about all of them in one call, at most once per `--interval` seconds, and answers
+the other calls from the cache (`.snakemake/pbs_status/` under the working directory).
+NCI asks a tool running on a persistent session to call `qstat` at most once every ten
+minutes, which is what the interval is for. The script never exits non-zero and never
+prints a second line, because either aborts the whole workflow.
 
 Answers: a queued, running, held, suspended, or exiting job is `running` (a held job is
-logged once); a finished job is `success` when its `Exit_status` is 0 and `failed`
+logged once); a finished job is `success` when its exit status is 0 and `failed`
 otherwise (a negative status is a PBS kill, `-29` the walltime limit); a job that `qstat`
 no longer knows, which happens 24 hours after it finished, is `failed`, so Snakemake redoes
 it instead of waiting forever; a `qstat` that fails or times out leaves the cache as it
@@ -33,19 +42,33 @@ from pathlib import Path
 STATE_FILE = "state.json"
 LOCK_FILE = "lock"
 LOG_FILE = "status.log"
+JOBLOG_DIR = "joblogs"
 
-#: PBS size suffixes, which are binary multiples.
+#: PBS size suffixes, which are binary multiples. `qstat` writes whole units (`8192000kb`)
+#: and the epilogue writes two decimals (`7.81GB`), so both forms are accepted.
 SIZE_UNITS = {"b": 1, "kb": 1024, "mb": 1024**2, "gb": 1024**3, "tb": 1024**4}
-SIZE_PATTERN = re.compile(r"(\d+)(b|kb|mb|gb|tb)?\Z")
+SIZE_PATTERN = re.compile(r"(\d+(?:\.\d+)?)(b|kb|mb|gb|tb)?\Z")
+
+#: The epilogue PBS appends to a finished job's log. Gadi's block carries `Exit Status:`
+#: and a requested/used pair per resource on one line each, as recorded from a real ingest
+#: job on 2026-09-16:
+#:     Exit Status:        0
+#:     Memory Requested:   7.81GB                Memory Used: 3.82GB
+#:     Walltime Requested: 01:00:00            Walltime Used: 00:00:37
+EXIT_PATTERN = re.compile(r"Exit Status:\s*(-?\d+)")
+MEMORY_PATTERN = re.compile(r"Memory Requested:\s*(\S+)\s+Memory Used:\s*(\S+)")
+WALLTIME_PATTERN = re.compile(r"Walltime Requested:\s*(\S+)\s+Walltime Used:\s*(\S+)")
+#: How much of a log's end to read for that block, which is under a kilobyte and sits last.
+EPILOGUE_TAIL_BYTES = 4096
 #: How close to its request a job must come for the note to call it a limit.
 AT_LIMIT_FRACTION = 0.98
 GIB = 1024**3
 
 
 def parse_size(value: object) -> int | None:
-    """Parse a PBS size such as `8388608000b` or `8192000kb` into bytes."""
+    """Parse a PBS size such as `8388608000b`, `8192000kb`, or the epilogue's `7.81GB`."""
     match = SIZE_PATTERN.match(str(value or "").strip().lower())
-    return int(match.group(1)) * SIZE_UNITS[match.group(2) or "b"] if match else None
+    return int(float(match.group(1)) * SIZE_UNITS[match.group(2) or "b"]) if match else None
 
 
 def parse_walltime(value: object) -> int | None:
@@ -79,6 +102,53 @@ def limit_note(entry: dict) -> str:
         at_limit = used_time >= asked_time * AT_LIMIT_FRACTION
         notes.append(f"{spent}, at its limit: raise the rule's runtime_min" if at_limit else spent)
     return "; ".join(notes)
+
+
+def recorded_log_path(cache: Path, jobid: str) -> Path | None:
+    """Return the PBS log the submit script recorded for this job, or None if it did not."""
+    try:
+        recorded = (cache / JOBLOG_DIR / jobid).read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return Path(recorded) if recorded else None
+
+
+def forget_log_path(cache: Path, jobid: str) -> None:
+    """Drop a finished job's record, so the directory holds the jobs still being watched."""
+    try:
+        (cache / JOBLOG_DIR / jobid).unlink(missing_ok=True)
+    except OSError:
+        pass  # the record is a convenience; a leftover file costs nothing
+
+
+def read_epilogue(log_path: Path) -> dict | None:
+    """Return a finished job's entry from the PBS epilogue, or None while it is not there.
+
+    The block appears when the job ends, including when PBS kills it, so its presence is
+    the end of the job and its absence means the job is queued, running, or gone without
+    ever writing one. The entry has the shape `refresh` builds from `qstat`, so one
+    classifier serves both sources.
+    """
+    try:
+        with log_path.open("rb") as handle:
+            handle.seek(0, 2)
+            handle.seek(max(0, handle.tell() - EPILOGUE_TAIL_BYTES))
+            tail = handle.read().decode("utf-8", errors="replace")
+    except OSError:
+        return None
+    exit_status = EXIT_PATTERN.search(tail)
+    if exit_status is None:
+        return None
+    memory = MEMORY_PATTERN.search(tail)
+    walltime = WALLTIME_PATTERN.search(tail)
+    return {
+        "state": "F",
+        "exit": int(exit_status.group(1)),
+        "asked_mem": memory.group(1) if memory else None,
+        "used_mem": memory.group(2) if memory else None,
+        "asked_walltime": walltime.group(1) if walltime else None,
+        "used_walltime": walltime.group(2) if walltime else None,
+    }
 
 
 def _numeric(jobid: str) -> str:
@@ -208,7 +278,13 @@ def main(argv: list[str]) -> int:
         help="where the shared cache and status.log live (default: .snakemake/pbs_status)",
     )
     parser.add_argument(
-        "--interval", type=float, default=60.0, help="seconds between qstat calls (default: 60)"
+        "--interval",
+        type=float,
+        default=600.0,
+        help=(
+            "seconds between qstat calls, which only jobs without a PBS epilogue wait on "
+            "(default: 600, NCI's stated cadence for a persistent session)"
+        ),
     )
     parser.add_argument(
         "--timeout",
@@ -231,12 +307,18 @@ def main(argv: list[str]) -> int:
         if args.jobid not in pending:
             pending.append(args.jobid)
         now = time.time()
-        if now - float(state.get("checked") or 0.0) >= args.interval:
+        pbs_log = recorded_log_path(cache, args.jobid)
+        ended = read_epilogue(pbs_log) if pbs_log is not None else None
+        if ended is not None:
+            _log(log_path, f"{args.jobid} ended; read from its PBS log {pbs_log}")
+            state.setdefault("jobs", {})[args.jobid] = ended
+        elif now - float(state.get("checked") or 0.0) >= args.interval:
             refresh(state, qstat=args.qstat, timeout=args.timeout, log_path=log_path, now=now)
         result = answer(state, args.jobid, log_path)
         if result != "running":
             state["pending"] = [jobid for jobid in pending if jobid != args.jobid]
             state.get("jobs", {}).pop(args.jobid, None)
+            forget_log_path(cache, args.jobid)
         _save(cache / STATE_FILE, state)
     print(result)
     return 0
