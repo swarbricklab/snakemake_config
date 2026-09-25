@@ -44,7 +44,11 @@ elif [[ $status == "F" ]]; then
         echo "failed"
     fi
 elif [[ $status == "H" ]]; then
-    echo "Job held. Check quota and resource requirements"
+    # A hold (H) is often transient: Gadi may briefly place a job on hold during
+    # scheduling/validation before it runs. Treat H like Q/R so a momentary hold
+    # does not abort the whole workflow -- snakemake keeps polling and proceeds
+    # once the job starts running (or reports F on genuine failure).
+    echo "running"
 else
     # Unknown status, save log
     qstat -x $jobid | grep $jobid >> $log
