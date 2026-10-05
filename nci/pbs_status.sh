@@ -1,56 +1,45 @@
-#! /bin/bash
+#!/bin/bash
 
-# This script checks the status of a job that has been submitted to PBS Pro by Snakemake
-# The script parses the results of 'qstat' and returns either 
-#    - "running" (which includes "queued"
-#    - "success" 
-#    - "failed"
-
+# Report the PBS state using Snakemake's running, success and failed values.
+set -u
 jobid=$1
-
 log=logs/joblogs/job_status.log
+mkdir -p "$(dirname "$log")"
 
-# Make sure error log exists
-if [ ! -f $log ]; then
-    mkdir -p logs/joblogs
-    echo -e "time\t\tjobid\t\tstatus" > $log
-fi
-
-# Check time of last poll and exit with "running" if less than two minutes have elapsed
-if grep -q $jobid $log; then
-    last_time=$(grep $jobid $log | tail -n 1 | cut -d $'\t' -f 1)
-    current_time=$(date +%s)
-    time_diff=$(( "$current_time" - "$last_time" ))
-    if [ "$time_diff" -le 120 ]; then
-        echo "running"
-        exit
+# Cache only active states. Terminal states must retain their final result.
+last=$(awk -F '\t' -v id="$jobid" '$2 == id {row=$0} END {print row}' "$log" 2>/dev/null || true)
+if [[ -n "$last" ]]; then
+    IFS=$'\t' read -r last_time _ last_status _ <<< "$last"
+    if [[ "$last_status" =~ ^(R|Q|E|H|W|T|S)$ ]] && (( $(date +%s) - last_time <= 120 )); then
+        echo running
+        exit 0
     fi
 fi
 
-# Poll job scheduler for job status and exit code 
-# Return running/success/failed as appropriate
-status=$(qstat -x $jobid | grep $jobid | tr -s ' ' | cut -d ' ' -f5)
-echo -e "$(date '+%s')\t$jobid\t$status" >> $log
-if [[ $status == "R" || $status == "Q" || $status == "E" ]]; then
-    echo "running"
-elif [[ $status == "F" ]]; then
-    # check exit code
-    exit_status=$(qstat -x $jobid -f -F dsv | sed 's/|/\n/g' | grep Exit_status)
-    exit_status=${exit_status: -1}
-    echo -e "$(date '+%s')\t$jobid\t$exit_status" >> $log
-    if [[ $exit_status == "0" ]]; then
-        echo "success"
-    else
-        echo "failed"
-    fi
-elif [[ $status == "H" ]]; then
-    # A hold (H) is often transient: Gadi may briefly place a job on hold during
-    # scheduling/validation before it runs. Treat H like Q/R so a momentary hold
-    # does not abort the whole workflow -- snakemake keeps polling and proceeds
-    # once the job starts running (or reports F on genuine failure).
-    echo "running"
-else
-    # Unknown status, save log
-    qstat -x $jobid | grep $jobid >> $log
-    echo "failed"
+if ! details=$(qstat -x "$jobid" -f -F dsv); then
+    echo "PBS status is unavailable for job $jobid." >&2
+    echo failed
+    exit 0
 fi
+status=$(printf '%s\n' "$details" | tr '|' '\n' | sed -n 's/^[[:space:]]*job_state[[:space:]]*=[[:space:]]*\([^[:space:]]*\)[[:space:]]*$/\1/p')
+exit_status=$(printf '%s\n' "$details" | tr '|' '\n' | sed -n 's/^[[:space:]]*Exit_status[[:space:]]*=[[:space:]]*\(-\{0,1\}[0-9][0-9]*\)[[:space:]]*$/\1/p')
+printf '%s\t%s\t%s\t%s\n' "$(date +%s)" "$jobid" "$status" "$exit_status" >> "$log"
+case "$status" in
+    R|Q|E|H|W|T|S)
+        if [[ "$status" == H ]]; then
+            echo "PBS job $jobid is held. Check quota and resource requirements." >&2
+        fi
+        echo running
+        ;;
+    F)
+        if [[ "$exit_status" == 0 ]]; then
+            echo success
+        else
+            echo failed
+        fi
+        ;;
+    *)
+        echo "PBS returned an unrecognised state for job $jobid: $status." >&2
+        echo failed
+        ;;
+esac
