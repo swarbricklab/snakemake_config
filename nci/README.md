@@ -1,90 +1,72 @@
-# Snakemake profile for PBS Pro on NCI
+# PBS Pro profile for NCI Gadi
 
-Source: simplified from scripts originally authored by Derrick Lin, which were in turn based on [metagenome-atlas/clusterprofile](https://github.com/metagenome-atlas/clusterprofile) (MIT, © 2017 Silas Kieser). See [THIRD_PARTY.md](../THIRD_PARTY.md).
+This profile uses the `cluster-generic` executor with Snakemake 9.27.1.
+It submits jobs with `qsub`, polls them with `qstat`
+and cancels them with `qdel`. It requires the Gadi scheduler and shared storage.
+Local adapter checks on Linux or macOS do not establish live PBS execution.
 
-NB: None of the profiles on [Snakemake-Profiles](https://github.com/Snakemake-Profiles) worked out of the box, and development appears to have stalled there.
+## Configure a deployment
 
-## Overview
+Review `config.yaml` before using this profile:
 
-This profile enables snakemake rules to be submitted as jobs to the PBS Pro job scheduler. 
-The profile then monitors these jobs and reports their exit status back to snakemake.
+| Setting | Required review |
+|---|---|
+| `PROJECT` environment variable | Set it to the allocation paying for the jobs. The profile reads it for `project` and derives `storage` as `gdata/` followed by that value. |
+| `default-resources.storage` | Include every storage volume the jobs need. The derived default does not include other projects or scratch mounts. |
+| `conda-prefix` | Replace the lab cache path with writable storage visible to compute jobs. |
+| `apptainer-prefix`, `apptainer-args` | Review the lab image cache and bind paths for workflows using Snakemake's Apptainer integration. airrborne uses its own container wrapper and bind settings. |
 
-This profile is intended to be used as a global profile that can be used across multiple workflows.
-It can also be used in conjunction with a workflow profile, which would include workflow-specific options.
+Pass this directory to Snakemake's `--profile` option and supply the launching
+workflow's `--workflow-profile`. Keep the workflow, inputs, outputs and caches
+visible at the same paths on the launch and compute nodes. Follow the workflow's
+preparation instructions before using compute nodes without network access.
 
-## Adapting this profile
+The adapter chooses a queue from memory and jobfs requests unless the job
+supplies `resources.queue`. Check the implementation against
+[NCI's queue limits](https://opus.nci.org.au/display/Help/Queue+Limits) before
+using another site or changing resource requests. Queue selection does not
+validate every scheduler constraint.
 
-The settings here are specific to the Swarbrick Lab's allocation on NCI Gadi, and are meant to be **copied and edited** rather than used as-is.
-If you are working under a different project, or on a different PBS Pro system, copy this directory and change at least the following in `config.yaml`:
+## Files and behaviour
 
-| Setting | Why |
-|---------|-----|
-| `default-resources: project` | Your NCI project code (ours is `a56`) |
-| `default-resources: storage` | The storage volumes your jobs need to mount |
-| `conda-prefix` | A path you can write to |
-| `singularity-prefix` | A path you can write to |
-| `singularity-args` | The bind mounts your jobs need |
+| File | Responsibility |
+|---|---|
+| `config.yaml` | Snakemake options, scheduler commands and default resources. |
+| `key_mapping.yaml` | PBS submission options for the adapter's resource keys. |
+| `pbs_submit.py` | Reads Snakemake job properties, selects the queue, converts walltime and submits the job. |
+| `pbs_status.sh` | Returns `running`, `success` or `failed` for one job. |
 
-The queue names and memory limits in `pbs_submit.py` (`select_queue`) follow the [NCI Gadi queue limits](https://opus.nci.org.au/display/Help/Queue+Limits) and will need revisiting on any other site.
+`resources.threads` supplies PBS `ncpus`; native Snakemake `threads` supplies
+workflow commands. Keep matching `set-threads` and `set-resources.threads`
+entries for multithreaded rules. The
+[shared-profile resource table](../README.md#resource-mapping) gives the units.
 
-`key_mapping.yaml` is the portability layer: it maps the human-readable resource names used in workflows onto PBS Pro submission options.
-Supporting a different scheduler should mostly be a matter of adding a mapping block for it.
+Each submission writes to a separate log under `logs/joblogs/<job-name>/`.
+The job name is the rule name or group ID. The filename includes the Snakemake
+job ID and a UUID, so retries retain earlier attempt logs.
 
+The status script treats queued, running and held jobs as `running`. A finished
+job succeeds only when its complete signed exit code is zero. Missing status or
+an unrecognised state returns `failed`. Active states are cached for 120 seconds;
+terminal states are queried again on each call. Completion is detected on the
+first query after an active-state cache expires.
 
-#### `config.yaml`
+Each scheduler response is recorded in `logs/joblogs/job_status.log` with the
+poll time, job ID, state and exit code. A held job also writes a diagnostic to
+standard error when queried.
 
-This is the starting point for the Snakemake profile.
-The config defined here is read when this directory is passed to the `--profile` option of the `snakemake` command, for example `--profile profiles/global/nci`.
+## Attribution
 
-The options here can be broadly divided into two blocks:
-1. settings for interacting with PBS Pro
-2. standard Snakemake options that could otherwise be specified from the command line
+The submission adapter derives from work by Derrick Lin and
+[metagenome-atlas/clusterprofile](https://github.com/metagenome-atlas/clusterprofile).
+[THIRD_PARTY.md](../THIRD_PARTY.md) retains the source notices.
 
-##### Settings for interacting with PBS Pro
-- `cluster`: The script specified here is used to submit jobs to the PBS Pro job scheduler
-- `cluster-status`: This script checks the status of running/completed jobs 
-- `cluster-cancel`: This script is called when the snakemake workflow is canceled (such as with Ctrl-C)
+## Alternative adapters: `submit_pbs.py`, `status_pbs.py` and `queues.yaml`
 
-##### Standard Snakemake options
-
-Consult the [official Snakemake docs](https://snakemake.readthedocs.io/en/v7.32.3/executing/cli.html).
-Profile options correspond directly to the command line options of the same name.
-
-#### `key_mapping.yaml`
-
-This YAML file maps PBS Pro job resource specifications to a more human-friendly format.
-This key-mapping approach is a step towards platform-independent profiles, where only the mapping files differ.
-
-The values in this mapping file are read by `pbs_submit.py`.
-
-#### `pbs_submit.py`
-
-This script is specified for the `cluster` option in `config.yaml`, and receives the jobscript as a parameter. 
-Jobscripts are generated by Snakemake based on each rule and its inputs and outputs, etc. 
-The script reads the job properties, including resource requirements, and converts these to PBS Pro resource specification format based on `key_mapping.yaml`.
-The script then submits a job to the PBS Pro job scheduler via `qsub` and then returns the job id.
-
-This is a simplified version of a script authored by Derrick Lin, which was in turn derived from `scheduler.py` in [metagenome-atlas/clusterprofile](https://github.com/metagenome-atlas/clusterprofile). Our version adds the NCI-specific queue selection (`select_queue`) and walltime handling (`calculate_walltime`). See [THIRD_PARTY.md](../THIRD_PARTY.md) for the licence notice.
-
-#### `pbs_status.sh`
-
-This script follows the status of jobs that have been submitted by `pbs_submit.py` by running `qstat` and filtering the output to determine the status of the job of interest.
-The result is reported back to Snakemake as either "running", "success" or "failed".
-Snakemake then makes decisions such as to whether to wait, restart the job or submit follow up jobs according to this report.
-
-This script is specified for the `cluster-status` option in `config.yaml` above. 
-Snakemake reads this script to check on the status of submitted jobs every 10 seconds (not configurable) but only actually checks the job status every two minutes in order to avoid spamming the job scheduler.
-This means that it can take up to two minutes for Snakemake to realise that a job has finished, but this is the price that we pay for being good NCI citizens.
-
-As well as reporting back to Snakemake, this script also records its observations in `logs/joblogs/job_status.log`, which can be used to debug problems with the interface between Snakemake and PBS Pro.
-
-## Snakemake 9 scripts: `submit_pbs.py`, `status_pbs.py`, and `queues.yaml`
-
-Added 2026-09-16 for the seamark pipeline's Gadi profile. They supersede `pbs_submit.py`,
-`pbs_status.sh`, and `key_mapping.yaml` above, which stay until the workflows that use
-them move over. Both scripts are plain Python 3 (PyYAML is the one dependency) and know
-nothing about any particular workflow: everything they need is in the jobscript that
-Snakemake writes and in the options a profile passes.
+The default profile selects `pbs_submit.py` and `pbs_status.sh`. The alternative
+Python adapters below use `queues.yaml` and different resource, environment and
+logging conventions. A workflow selects them explicitly and validates that
+contract before switching. Both require Python 3 and PyYAML.
 
 A workflow profile uses them like this (the scripts on `PATH`, or named by path):
 

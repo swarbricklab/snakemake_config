@@ -3,12 +3,11 @@ name: snakemake_9
 channels:
     - conda-forge
     - bioconda
-    - default
 
 dependencies:
     - python>=3.11
-    - snakemake=9.16.0
-    - snakemake-executor-plugin-cluster-generic
+    - snakemake=9.27.1
+    - snakemake-executor-plugin-cluster-generic=1.0.9
     - eido
     - peppy<0.40
     - yq

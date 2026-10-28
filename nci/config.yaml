@@ -12,7 +12,7 @@ __variables__:
 
 jobname: "{name}.{jobid}"
 
-# Executor plugin configuration (Snakemake 8+ replaces cluster: directive)
+# Submit PBS jobs through the cluster-generic executor plugin.
 executor: cluster-generic
 cluster-generic-submit-cmd: "pbs_submit.py"
 cluster-generic-status-cmd: "pbs_status.sh"
@@ -21,12 +21,12 @@ cluster-generic-cancel-cmd: "qdel"
 # Conda settings
 conda-prefix: /g/data/a56/conda/snakecache/
 
-# Software deployment (Snakemake 8+ replaces use-singularity: true)
+# Enable the deployment methods requested by workflow rules.
 software-deployment-method:
   - conda
   - apptainer
-singularity-prefix: "/g/data/a56/software/singularity/images"
-singularity-args: "--bind /g/data/a56,/scratch/a56"
+apptainer-prefix: "/g/data/a56/software/singularity/images"
+apptainer-args: "--bind /g/data/a56,/scratch/a56"
 
 # Snakemake settings
 jobs: 1000

@@ -18,6 +18,8 @@ import logging, traceback
 from subprocess import Popen, PIPE
 import yaml
 import json
+import shlex
+from uuid import uuid4
 from snakemake.utils import read_job_properties
 
 # Log config
@@ -77,7 +79,7 @@ def select_queue(mem,jobfs, provided_queue=None):
             queue = 'hugemem'
             mem = max(mem,NORMAL_MAX_MEM+1024)
         else:
-            queue = 'memgamem'
+            queue = 'megamem'
             mem = max(mem,HUGEMEM_MAX_MEM+1024)
         # Now look at mem
         if mem < NORMAL_MAX_MEM:
@@ -85,7 +87,7 @@ def select_queue(mem,jobfs, provided_queue=None):
         elif mem < HUGEMEM_MAX_MEM:
             queue = 'hugemem'
         else:
-            queue = 'memgamem'
+            queue = 'megamem'
         # Return queue string, plus updated mem string
         # Note that if '-l mem={mem}' is specified twice with qsub
         # then only the second value is used
@@ -150,11 +152,12 @@ log_dir="logs/joblogs/{}".format(params["name"])
 os.makedirs(log_dir, exist_ok=True)
 command += select_queue(params["mem_mb"], params["disk_mb"], provided_queue)
 command += calculate_walltime(params["runtime"])
-command += " -o " + log_dir + "/{}.{}.log -- ".format(params["name"], params["jobid"])
-command += " {}".format(jobscript)
+attempt_log = os.path.join(log_dir, "{}.{}.{}.log".format(params["name"], params["jobid"], uuid4().hex))
+command += " -o " + shlex.quote(attempt_log) + " -- "
+command += shlex.quote(jobscript)
 logging.info("submit command: " + command)
 
-p = Popen(command.split(), stdout=PIPE, stderr=PIPE)
+p = Popen(shlex.split(command), stdout=PIPE, stderr=PIPE)
 output, error = p.communicate()
 if p.returncode != 0:
     error_message = "Job can't be submitted\n" + output.decode("utf-8") + error.decode("utf-8")
