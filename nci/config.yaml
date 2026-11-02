@@ -2,10 +2,21 @@ __use_yte__: true
 
 __definitions__:
   - import os
+  # The running project (PBS -P) whose gdata + scratch are always mounted.
+  - project = os.getenv("PROJECT")
+  # Shared Swarbrick-lab data filesystems (NCI gdata project codes) that workflows
+  # routinely read in addition to the running project's own storage -- e.g. px14
+  # and bc07 hold DVC registries / datasets consumed across pipelines. These are
+  # mounted by default; override with the EXTRA_GDATA env var (comma-separated
+  # project codes, or empty) when running elsewhere or without them.
+  - extra_gdata = [p for p in os.getenv("EXTRA_GDATA", "px14,bc07").split(",") if p]
 
 __variables__:
-  PROJECT: ?os.getenv("PROJECT")
-  STORAGE: ?"gdata/"+os.getenv("PROJECT")
+  PROJECT: ?project
+  # PBS storage= spec: the project's own gdata plus the shared extras (plus-joined).
+  STORAGE: ?"+".join(["gdata/" + project] + ["gdata/" + p for p in extra_gdata])
+  # Matching singularity bind paths (comma-joined): project gdata + scratch + extras.
+  BIND: ?",".join(["/g/data/" + project, "/scratch/" + project] + ["/g/data/" + p for p in extra_gdata])
 
 # Global Snakemake config for snakemake workflows
 # Config specified here is merged with workflow-specific config
@@ -21,7 +32,7 @@ conda-prefix: /g/data/a56/conda/snakecache/
 # Singularity settings
 use-singularity: true
 singularity-prefix: "/g/data/a56/software/singularity/images"
-singularity-args:   "--bind /g/data/a56,/scratch/a56"
+singularity-args:   ?"--bind " + BIND
 
 # Snakemake settings
 jobs: 1000
