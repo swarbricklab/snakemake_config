@@ -18,4 +18,9 @@ conda env create -f snakemake_9.yaml
 
 Note: `snakemake_7.32.4.yaml` is retained for backwards compatibility but `snakemake_9.yaml` is the recommended version.
 
-The location of the conda environment created by this command is determined by your `~/.condarc` and defaults to `~/.conda` if you do not have a `~/.condarc` file.
+Conda chooses a writable environment directory from its configured search paths.
+It does not always use `~/.conda`. Inspect the configuration with
+`conda config --show envs_dirs` and the created environment with
+`conda info --envs`. An explicit `--prefix` selects its location instead of the
+environment name. See the
+[Conda environment-directory settings](https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/settings.html#envs-dirs-specify-environment-directories).
